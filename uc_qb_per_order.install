@@ -1,0 +1,155 @@
+<?php
+/**
+ * @file 
+ */
+
+/**
+ * Implementation of hook_install() 
+ */
+function uc_qb_per_order_install() {
+    drupal_install_schema('uc_qb_per_order');
+}
+
+/**
+ * Implementation of hook_uninstall() 
+ */
+function uc_qb_per_order_uninstall() {
+    drupal_uninstall_schema('uc_qb_per_order');
+    variable_del('uc_qb_per_order_reset_qb_variables');
+    variable_del('uc_qb_per_order_settings');
+    variable_del('uc_qb_per_order_qb_variables');
+}
+
+/**
+ * Implementation of hook_schema()
+ * @return array
+ */
+function uc_qb_per_order_schema() {
+    $schema = array();
+    $schema['uc_qb_per_order'] = array(
+        'fields' => array(
+            'uqpo_id' => array(
+                'type' => 'serial',
+                'unsigned' => TRUE,
+            ),
+            'order_id' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+            ),
+            'qb_import_type' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'size' => 'tiny',
+                'default' => 0,
+            ),
+            'qb_ref_no' => array(
+                'type' => 'varchar',
+                'length' => '12',
+                'default' => NULL,
+            ),
+            'qb_list_id' => array(
+                'type' => 'varchar',
+                'length' => '36',
+                'default' => NULL,
+            ),
+            'qb_total_amount' => array(
+                'type' => 'numeric',
+                'not null' => TRUE,
+                'default' => 0,
+                'precision' => '10',
+                'scale' => '2',
+            ),
+            'qb_imported_at' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'default' => 0,
+            ),
+            'qb_last_message' => array(
+                'type' => 'text',
+                'default' => NULL,
+            ),
+            'uqpo_status' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'size' => 'tiny',
+                'default' => 0
+            ),
+        ),
+        'primary key' => array(
+            'uqpo_id'
+        ),
+        'indexes' => array(
+            'order_id' => array(
+                'order_id'
+            ),
+        ),
+    );
+    $schema['uc_qb_per_order_product_mapping'] = array(
+        'fields' => array(
+            'product_nid' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => TRUE,
+            ),
+            'qb_list_id' => array(
+                'type' => 'varchar',
+                'length' => 48,
+                'default' => NULL,
+            ),
+            'model' => array(
+                'type' => 'varchar',
+                'length' => '48',
+                'default' => NULL,
+            ),
+            'cost' => array(
+                'type' => 'numeric',
+                'not null' => TRUE,
+                'default' => 0,
+                'precision' => '10',
+                'scale' => '2',
+            ),
+            'price' => array(
+                'type' => 'numeric',
+                'not null' => TRUE,
+                'default' => 0,
+                'precision' => '10',
+                'scale' => '2',
+            ),
+        ),
+        'indexes' => array(
+            'product_nid' => array('product_nid'),
+        ),
+        'unique keys' => array(
+            'model' => array('model'),
+        ),
+    );
+    $schema['uc_qb_per_order_user_mapping'] = array(
+        'fields' => array(
+            'uid' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => TRUE,
+            ),
+            'name' => array(
+                'type' => 'varchar',
+                'length' => 48,
+            ),
+            'email' => array(
+                'type' => 'varchar',
+                'length' => 48,
+            ),
+            'qb_list_id' => array(
+                'type' => 'varchar',
+                'length' => 48,
+            ),
+            'qb_account_no' => array(
+                'type' => 'varchar',
+                'length' => 48,
+            ),
+        ),
+        'unique keys' => array(
+            'uid' => array('uid')
+        ),
+    );
+    return $schema;
+}
