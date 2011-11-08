@@ -1,7 +1,18 @@
 <?php
+
 /**
  * @file
- * Import Ubercart order to QuickBooks as invoice/receipt
+ * Import Ubercart orders to QuickBooks as invoice/receipt
+ *
+ * Able to choose which orders you want to import to QuickBooks.
+ * Import Ubercart orders into Quickbooks as Sales Receipts or Invoices.
+ * Match Ubercart with QuickBooks customers and items or create if non-existent.
+ * Map Ubercart with QuickBooks accounts, shipping, taxes, payment method and customer message.
+ * Create a QuickBooks class to track your orders.
+ * Multiple currencies supported.
+ * Tests with QuickBooks 2009-2011 US and Canadian version.
+ *
+ * Original code by toptons.com IT team
  */
 define('UQPO_RECEIPT', 1);
 define('UQPO_INVOICE', 2);
@@ -18,24 +29,24 @@ function uc_qb_per_order_help($path, $arg) {
  * Implementation of hook_menu()
  */
 function uc_qb_per_order_menu() {
-    return array(
-        'admin/settings/uc_qb_per_order' => array(
-            'title' => t('UC QuickBooks per order settings'),
-            'page callback' => 'drupal_get_form',
-            'page arguments' => array('uc_qb_per_order_settings'),
-            'access arguments' => array('administer uc_qb_per_order'),
-            'file' => 'uc_qb_per_order_settings.inc',
-            'type' => MENU_NORMAL_ITEM,
-        ),
-        'admin/settings/uc_qb_per_order/reinitialize_qb_variables/confirm' => array(
-            'title' => t('Re-initialize QuickBooks variables'),
-            'page callback' => 'drupal_get_form',
-            'page arguments' => array('reinitialize_qb_variables_confirm'),
-            'access arguments' => array('administer uc_qb_per_order'),
-            'file' => 'uc_qb_per_order_settings.inc',
-            'type' => MENU_CALLBACK,
-        ),
-    );
+  return array(
+      'admin/settings/uc_qb_per_order' => array(
+          'title' => t('UC QuickBooks per order settings'),
+          'page callback' => 'drupal_get_form',
+          'page arguments' => array('uc_qb_per_order_settings'),
+          'access arguments' => array('administer uc_qb_per_order'),
+          'file' => 'uc_qb_per_order_settings.inc',
+          'type' => MENU_NORMAL_ITEM,
+      ),
+      'admin/settings/uc_qb_per_order/reinitialize_qb_variables/confirm' => array(
+          'title' => t('Re-initialize QuickBooks variables'),
+          'page callback' => 'drupal_get_form',
+          'page arguments' => array('reinitialize_qb_variables_confirm'),
+          'access arguments' => array('administer uc_qb_per_order'),
+          'file' => 'uc_qb_per_order_settings.inc',
+          'type' => MENU_CALLBACK,
+      ),
+  );
 }
 
 /**
@@ -43,71 +54,71 @@ function uc_qb_per_order_menu() {
  * @return <type>
  */
 function uc_qb_per_order_perm() {
-    return array(
-        'administer uc_qb_per_order'
-    );
+  return array(
+      'administer uc_qb_per_order'
+  );
 }
 
 /**
  * Implememtation of hook_order()
  */
 function uc_qb_per_order_order($op, &$arg1, $arg2) {
-    switch ($op) {
-        case 'new':
-            db_query("INSERT INTO {uc_qb_per_order} (order_id) VALUES (%d)", $arg1->order_id);
-            break;
-        case "save":
-            $ret = db_result(db_query("SELECT * FROM {uc_qb_per_order} WHERE order_id = %d", $arg1->order_id));
-            if (!$ret) {
-                db_query("INSERT INTO {uc_qb_per_order} (order_id) VALUES (%d)", $arg1->order_id);
-            }
-            break;
-        case "load":
-            $ret = db_result(db_query("SELECT * FROM {uc_qb_per_order} WHERE order_id = %d", $arg1->order_id));
-            if (!$ret) {
-                db_query("INSERT INTO {uc_qb_per_order} (order_id) VALUES (%d)", $arg1->order_id);
-            }
-            $q = db_query("SELECT * FROM {uc_qb_per_order} WHERE order_id = %d", $arg1->order_id);
-            $arg1->uc_qb_per_order = db_fetch_object($q);
-            $arg1->uc_qb_per_order_user_list_id = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_user_mapping} WHERE uid = %d", $arg1->uid));
-            $customer = user_load($arg1->uid);
-            $arg1->uc_qb_per_order_customer_name = $customer->name;
-            if (count($arg1->products)) {
-                foreach ($arg1->products as $k => $product) {
-                    if ($product->nid) {
-                        $arg1->products[$k]->uc_qb_per_order_product_list_id = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_product_mapping} WHERE product_nid = %d", $product->nid));
-                    }
-                    else {
-                        $arg1->products[$k]->uc_qb_per_order_product_list_id = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $product->model));
-                    }
-                }
-            }
-            break;
-    }
+  switch ($op) {
+    case 'new':
+      db_query("INSERT INTO {uc_qb_per_order} (order_id) VALUES (%d)", $arg1->order_id);
+      break;
+    case "save":
+      $ret = db_result(db_query("SELECT * FROM {uc_qb_per_order} WHERE order_id = %d", $arg1->order_id));
+      if (!$ret) {
+        db_query("INSERT INTO {uc_qb_per_order} (order_id) VALUES (%d)", $arg1->order_id);
+      }
+      break;
+    case "load":
+      $ret = db_result(db_query("SELECT * FROM {uc_qb_per_order} WHERE order_id = %d", $arg1->order_id));
+      if (!$ret) {
+        db_query("INSERT INTO {uc_qb_per_order} (order_id) VALUES (%d)", $arg1->order_id);
+      }
+      $q = db_query("SELECT * FROM {uc_qb_per_order} WHERE order_id = %d", $arg1->order_id);
+      $arg1->uc_qb_per_order = db_fetch_object($q);
+      $arg1->uc_qb_per_order_user_list_id = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_user_mapping} WHERE uid = %d", $arg1->uid));
+      $customer = user_load($arg1->uid);
+      $arg1->uc_qb_per_order_customer_name = $customer->name;
+      if (count($arg1->products)) {
+        foreach ($arg1->products as $k => $product) {
+          if ($product->nid) {
+            $arg1->products[$k]->uc_qb_per_order_product_list_id = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_product_mapping} WHERE product_nid = %d", $product->nid));
+          }
+          else {
+            $arg1->products[$k]->uc_qb_per_order_product_list_id = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $product->model));
+          }
+        }
+      }
+      break;
+  }
 }
 
 function _get_tax_qb_list_id($tax_id) {
-    $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', array());
-    if (count($uc_qb_per_order_settings['taxes'])) {
-        return $uc_qb_per_order_settings['taxes'][$tax_id];
-    }
-    return NULL;
+  $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', array());
+  if (count($uc_qb_per_order_settings['taxes'])) {
+    return $uc_qb_per_order_settings['taxes'][$tax_id];
+  }
+  return NULL;
 }
 
 /**
  * Implementation of hook_order_pane()
  */
 function uc_qb_per_order_order_pane() {
-    $panes[] = array(
-        'id' => 'qbimport',
-        'callback' => 'uc_qb_per_order_pane_update',
-        'title' => t('QuickBooks import'),
-        'desc' => t("Import this order to QuickBooks"),
-        'class' => 'abs-left',
-        'weight' => 20,
-        'show' => array('view'),
-    );
-    return $panes;
+  $panes[] = array(
+      'id' => 'qbimport',
+      'callback' => 'uc_qb_per_order_pane_update',
+      'title' => t('QuickBooks import'),
+      'desc' => t("Import this order to QuickBooks"),
+      'class' => 'abs-left',
+      'weight' => 20,
+      'show' => array('view'),
+  );
+  return $panes;
 }
 
 /**
@@ -117,838 +128,930 @@ function uc_qb_per_order_order_pane() {
  * @return <type>
  */
 function uc_qb_per_order_pane_update($op, $arg1) {
-    switch ($op) {
-        case 'view':
-            return drupal_get_form('uc_qb_per_order_import_form', $arg1);
-    }
+  switch ($op) {
+    case 'view':
+      return drupal_get_form('uc_qb_per_order_import_form', $arg1);
+  }
 }
 
 /**
  * Implementation of hook_form_FORM_ID_alter()
  */
 function uc_qb_per_order_import_form($form_state, $order) {
-    $form['uqpo_order_id'] = array(
-        '#type' => 'hidden',
-        '#value' => $order->order_id,
+  $form['uqpo_order_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $order->order_id,
+  );
+  $form['uc_qb_per_order_import'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Import type'),
+      '#weight' => 5,
+  );
+  $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
+  if ($uc_qb_per_order_settings == NULL) {
+    $form['uc_qb_per_order_import']['message'] = array(
+        '#value' => t('UC QuickBooks per order is not setup properly. Click !here to setup.', array('!here' => l('here', 'admin/settings/uc_qb_per_order'))),
     );
-    $form['uc_qb_per_order_import'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Import type'),
-        '#weight' => 5,
+  }
+  else {
+    $form['uc_qb_per_order_import']['import_type'] = array(
+        '#type' => 'radios',
+        '#title' => t('Import to QuickBooks as'),
+        '#default_value' => $order->uc_qb_per_order->qb_import_type,
+        '#options' => array(
+            0 => t('None'),
+            UQPO_RECEIPT => t('Receipt'),
+            UQPO_INVOICE => t('Invoice'),
+        ),
+        '#disabled' => ($order->uid) ? FALSE : TRUE
     );
-    $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
-    if ($uc_qb_per_order_settings == NULL) {
-        $form['uc_qb_per_order_import']['message'] = array(
-            '#value' => t('UC QuickBooks per order is not setup properly. Click !here to setup.', array('!here' => l('here', 'admin/settings/uc_qb_per_order'))),
-        );
-    }
-    else {
-        $form['uc_qb_per_order_import']['import_type'] = array(
-            '#type' => 'radios',
-            '#title' => t('Import to QuickBooks as'),
-            '#default_value' => $order->uc_qb_per_order->qb_import_type,
-            '#options' => array(
-                0 => t('None'),
-                UQPO_RECEIPT => t('Receipt'),
-                UQPO_INVOICE => t('Invoice'),
-            ),
-            '#disabled' => ($order->uid) ? FALSE : TRUE
-        );
-        $form['uc_qb_per_order_import']['message'] = array(
-            '#value' => ($order->uid) ?
-                    ((($order->uc_qb_per_order->qb_imported_at) ?
-                            '[' . date('M d, Y h:i:s A', $order->uc_qb_per_order->qb_imported_at) . '] ' : '') .
-                    $order->uc_qb_per_order->qb_last_message) : t('Customer is not a valid user.'));
-        $form['uc_qb_per_order_import_submit'] = array(
-            '#type' => 'submit',
-            '#value' => t('Submit'),
-            '#weight' => 10,
-        );
-    }
-    return $form;
+    $form['uc_qb_per_order_import']['message'] = array(
+        '#value' => ($order->uid) ?
+                ((($order->uc_qb_per_order->qb_imported_at) ?
+                        '[' . date('M d, Y h:i:s A', $order->uc_qb_per_order->qb_imported_at) . '] ' : '') .
+                $order->uc_qb_per_order->qb_last_message) : t('Customer is not a valid user.'));
+    $form['uc_qb_per_order_import_submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Submit'),
+        '#weight' => 10,
+    );
+  }
+  return $form;
 }
 
 function uc_qb_per_order_import_form_submit($form, &$form_state) {
-    db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_ref_no = NULL, qb_last_message = NULL, qb_imported_at = 0 WHERE order_id = %d",
-            $form_state['values']['import_type'], $form_state['values']['uqpo_order_id']);
-    if ($form_state['values']['import_type'] == 0) {
-        drupal_set_message(t('This order will not import to QuickBooks.'));
-    }
-    else {
-        drupal_set_message(t('You have chosen to import as @type. Order will be imported to QuickBooks next QBWC request.',
-                        array('@type' => ($form_state['values']['import_type'] == UQPO_RECEIPT) ? t('receipt') : t('invoice'))));
-    }
+  db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_ref_no = NULL, qb_last_message = NULL, qb_imported_at = 0 WHERE order_id = %d",
+          $form_state['values']['import_type'], $form_state['values']['uqpo_order_id']);
+  if ($form_state['values']['import_type'] == 0) {
+    drupal_set_message(t('This order will not import to QuickBooks.'));
+  }
+  else {
+    drupal_set_message(t('You have chosen to import as @type. Order will be imported to QuickBooks next QBWC request.',
+                    array('@type' => ($form_state['values']['import_type'] == UQPO_RECEIPT) ? t('receipt') : t('invoice'))));
+  }
 }
 
 /**
  * Implementation of hook_qbwc_request()
  */
 function uc_qb_per_order_qbwc_request() {
-    if (variable_get('uc_qb_per_order_stop', 0))
-        return;
-    $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    $querys = array();
-    $qb_ver = variable_get('qb_version', QB_VERSION_DEFAULT);
-    if ($uc_qb_per_order_qb_variables == NULL || variable_get('uc_qb_per_order_reset_qb_variables', 0) == 1) {
-        $querys[] = array(
-            'name' => 'SalesTaxCodeQueryRq',
-            'request' => array(
-                'ActiveStatus' => 'ActiveOnly',
-            ),
-            'callback' => array('uc_qb_per_order_salestaxcode_query_response'),
-        );
-        $querys[] = array(
-            'name' => 'AccountQueryRq',
-            'request' => array(
-                'ActiveStatus' => 'ActiveOnly',
-            ),
-            'callback' => array('uc_qb_per_order_account_query_response'),
-        );
-        $querys[] = array(
-            'name' => 'ItemOtherChargeQueryRq',
-            'request' => array(
-                'ActiveStatus' => 'ActiveOnly',
-            ),
-            'callback' => array('uc_qb_per_order_itemothercharge_query_response'),
-        );
-        $querys[] = array(
-            'name' => 'CustomerMsgQueryRq',
-            'request' => array(
-                'ActiveStatus' => 'ActiveOnly',
-            ),
-            'callback' => array('uc_qb_per_order_customermsg_query_response'),
-        );
-        $querys[] = array(
-            'name' => 'PaymentMethodQueryRq',
-            'request' => array(
-                'ActiveStatus' => 'ActiveOnly',
-            ),
-            'callback' => array('uc_qb_per_order_paymentmethod_query_response'),
-        );
-        $querys[] = array(
-            'name' => 'ClassQueryRq',
-            'request' => array(
-                'ActiveStatus' => 'ActiveOnly',
-            ),
-            'callback' => array('uc_qb_per_order_class_query_response'),
-        );
-        // Currency query QBXML 8.0+
-        if (str_replace('.', '', $qb_ver) >= 80) {
-            $querys[] = array(
-                'name' => 'CurrencyQueryRq',
-                'request' => array(
-                    'ActiveStatus' => 'ActiveOnly',
-                ),
-                'callback' => array('uc_qb_per_order_currency_query_response'),
-            );
-        }
-        variable_set('uc_qb_per_order_reset_qb_variables', 0);
+  if (variable_get('uc_qb_per_order_stop', 0))
+    return;
+  $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  $querys = array();
+  $qb_ver = variable_get('qb_version', QB_VERSION_DEFAULT);
+  if ($uc_qb_per_order_qb_variables == NULL || variable_get('uc_qb_per_order_reset_qb_variables', 0) == 1) {
+    $querys[] = array(
+        'name' => 'HostQueryRq',
+        'request' => array(),
+        'callback' => array('uc_qb_per_order_host_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'PreferencesQueryRq',
+        'request' => array(),
+        'callback' => array('uc_qb_per_order_preferences_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'ItemSalesTaxQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_item_sales_tax_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'SalesTaxCodeQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_salestaxcode_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'AccountQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_account_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'ItemOtherChargeQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_itemothercharge_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'CustomerMsgQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_customermsg_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'PaymentMethodQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_paymentmethod_query_response'),
+    );
+    $querys[] = array(
+        'name' => 'ClassQueryRq',
+        'request' => array(
+            'ActiveStatus' => 'ActiveOnly',
+        ),
+        'callback' => array('uc_qb_per_order_class_query_response'),
+    );
+    // Currency query QBXML 8.0+
+    if (str_replace('.', '', $qb_ver) >= 80) {
+      $querys[] = array(
+          'name' => 'CurrencyQueryRq',
+          'request' => array(
+              'ActiveStatus' => 'ActiveOnly',
+          ),
+          'callback' => array('uc_qb_per_order_currency_query_response'),
+      );
     }
-    else {
-        $q = db_query("SELECT order_id FROM {uc_qb_per_order} WHERE qb_import_type > 0 AND qb_ref_no IS NULL AND qb_last_message IS NULL");
-        while ($r = db_fetch_object($q)) {
-            $order = uc_order_load($r->order_id);
-            // check line items
-            if (count($order->line_items)) {
-                foreach ($order->line_items as $k => $item) {
-                    if (!strlen($item['title'])) {
-                        db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_last_message = '%s' WHERE order_id = %d", 0, t('Line item title cannot be blank.'), $order->order_id);
-                        $order->uc_qb_per_order->qb_import_type = 0;
-                    }
-                    else {
-                        if ($item['type'] != 'subtotal' && $item['type'] != 'tax_subtotal') {
-                            if ($item['type'] == 'tax') {
-                                $order->line_items[$k]['uc_qb_per_order_line_item_list_id'] = _get_tax_qb_list_id($item['data']['tax_id']);
-                            }
-                            elseif ($item['type'] == 'shipping') {
-                                $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', array());
-                                $order->line_items[$k]['uc_qb_per_order_line_item_list_id'] = $uc_qb_per_order_settings['special_item']['shipping'];
-                            }
-                            else {
-                                $order->line_items[$k]['uc_qb_per_order_line_item_list_id'] = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $item['title']));
-                                if (!$order->line_items[$k]['uc_qb_per_order_line_item_list_id']) {
-                                    $item['order_id'] = $order->order_id;
-                                    $querys[] = array(
-                                        'name' => 'ItemOtherChargeQueryRq',
-                                        'request' => array(
-                                            'FullName' => $item['title'],
-                                        ),
-                                        'data' => $item,
-                                        'callback' => array('uc_qb_per_order_itemothercharge_query_response'),
-                                    );
-                                }
-                            }
-                        }
-                    }
+    variable_set('uc_qb_per_order_reset_qb_variables', 0);
+  }
+  else {
+    $q = db_query("SELECT order_id FROM {uc_qb_per_order} WHERE qb_import_type > 0 AND qb_ref_no IS NULL AND qb_last_message IS NULL");
+    while ($r = db_fetch_object($q)) {
+      $order = uc_order_load($r->order_id);
+      // check line items
+      if (count($order->line_items)) {
+        foreach ($order->line_items as $k => $item) {
+          if (!strlen($item['title'])) {
+            db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_last_message = '%s' WHERE order_id = %d", 0, t('Line item title cannot be blank.'), $order->order_id);
+            $order->uc_qb_per_order->qb_import_type = 0;
+          }
+          else {
+            if ($item['type'] != 'subtotal' && $item['type'] != 'tax_subtotal') {
+              if ($item['type'] == 'tax') {
+                $order->line_items[$k]['uc_qb_per_order_line_item_list_id'] = _get_tax_qb_list_id($item['data']['tax_id']);
+              }
+              elseif ($item['type'] == 'shipping') {
+                $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', array());
+                $order->line_items[$k]['uc_qb_per_order_line_item_list_id'] = $uc_qb_per_order_settings['special_item']['shipping'];
+              }
+              else {
+                $order->line_items[$k]['uc_qb_per_order_line_item_list_id'] = db_result(db_query("SELECT qb_list_id FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $item['title']));
+                if (!$order->line_items[$k]['uc_qb_per_order_line_item_list_id']) {
+                  $item['order_id'] = $order->order_id;
+                  $querys[] = array(
+                      'name' => 'ItemOtherChargeQueryRq',
+                      'request' => array(
+                          'FullName' => $item['title'],
+                      ),
+                      'data' => $item,
+                      'callback' => array('uc_qb_per_order_itemothercharge_query_response'),
+                  );
                 }
+              }
             }
-            // check products
-            if (count($order->products)) {
-                foreach ($order->products as $k => $product) {
-                    if (!strlen($product->model)) {
-                        db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_last_message = '%s' WHERE order_id = %d", 0, t('Product SKU cannot be blank.'), $order->order_id);
-                        $order->uc_qb_per_order->qb_import_type = 0;
-                    }
-                    else {
-                        if (!$product->uc_qb_per_order_product_list_id) {
-                            if ($product->nid) {
-                                $querys[] = array(
-                                    'name' => 'ItemInventoryQueryRq',
-                                    'request' => array(
-                                        'FullName' => $product->model,
-                                    ),
-                                    'data' => $product,
-                                    'callback' => array('uc_qb_per_order_iteminventory_query_response'),
-                                );
-                            }
-                            else {
-                                $querys[] = array(
-                                    'name' => 'ItemServiceQueryRq',
-                                    'request' => array(
-                                        'FullName' => $product->model,
-                                    ),
-                                    'data' => $product,
-                                    'callback' => array('uc_qb_per_order_itemservice_query_response'),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            // check customer
-            if (!$order->uc_qb_per_order_user_list_id) {
+          }
+        }
+      }
+      // check products
+      if (count($order->products)) {
+        foreach ($order->products as $k => $product) {
+          if (!strlen($product->model)) {
+            db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_last_message = '%s' WHERE order_id = %d", 0, t('Product SKU cannot be blank.'), $order->order_id);
+            $order->uc_qb_per_order->qb_import_type = 0;
+          }
+          else {
+            if (!$product->uc_qb_per_order_product_list_id) {
+              if ($product->nid) {
                 $querys[] = array(
-                    'name' => 'CustomerQueryRq',
+                    'name' => 'ItemInventoryQueryRq',
                     'request' => array(
-                        'FullName' => $order->uc_qb_per_order_customer_name
+                        'FullName' => $product->model,
                     ),
-                    'data' => $order,
-                    'callback' => array('uc_qb_per_order_customer_query_response'),
+                    'data' => $product,
+                    'callback' => array('uc_qb_per_order_iteminventory_query_response'),
                 );
+              }
+              else {
+                $querys[] = array(
+                    'name' => 'ItemServiceQueryRq',
+                    'request' => array(
+                        'FullName' => $product->model,
+                    ),
+                    'data' => $product,
+                    'callback' => array('uc_qb_per_order_itemservice_query_response'),
+                );
+              }
             }
-            if (empty($querys)) {
-                if ($order->uc_qb_per_order->qb_import_type != 0 && $order->uc_qb_per_order->qb_import_type == UQPO_RECEIPT) {
-                    // import to QuickBooks as receipt
-                    $receipt = array();
-                    $billing_country = uc_get_country_data(array('country_id' => $order->billing_country));
-                    $shipping_country = uc_get_country_data(array('country_id' => $order->delivery_country));
-                    $receipt['CustomerRef']['ListID'] = $order->uc_qb_per_order_user_list_id;
-                    if (!empty($uc_qb_per_order_settings['class'])) {
-                        $receipt['ClassRef']['ListID'] = $uc_qb_per_order_settings['class'];
-                    }
-                    $receipt['TxnDate'] = date('Y-m-d', $order->created);
-                    // billing address
-                    $i = 1;
-                    $receipt['BillAddress'] = array();
-                    if (strlen($order->billing_company)) {
-                        $receipt['BillAddress']['Addr' . $i] = $order->billing_company;
-                        $i++;
-                    }
-                    if (strlen($order->billing_first_name) || strlen($order->billing_last_name)) {
-                        $receipt['BillAddress']['Addr' . $i] = $order->billing_first_name . ' ' . $order->billing_last_name;
-                        $i++;
-                    }
-                    if (strlen($order->billing_street1)) {
-                        $receipt['BillAddress']['Addr' . $i] = $order->billing_street1;
-                        $i++;
-                    }
-                    if (strlen($order->billing_street2)) {
-                        $receipt['BillAddress']['Addr' . $i] = $order->billing_street2;
-                        $i++;
-                    }
-                    $receipt['BillAddress']['City'] = $order->billing_city;
-                    $receipt['BillAddress']['State'] = uc_get_zone_code($order->billing_zone);
-                    $receipt['BillAddress']['PostalCode'] = $order->billing_postal_code;
-                    $receipt['BillAddress']['Country'] = $billing_country[0]['country_iso_code_2'];
-                    // shipping address
-                    $i = 1;
-                    $receipt['ShipAddress'] = array();
-                    if (strlen($order->delivery_company)) {
-                        $receipt['ShipAddress']['Addr' . $i] = $order->delivery_company;
-                        $i++;
-                    }
-                    if (strlen($order->delivery_first_name) || strlen($order->delivery_last_name)) {
-                        $receipt['ShipAddress']['Addr' . $i] = $order->delivery_first_name . ' ' . $order->delivery_last_name;
-                        $i++;
-                    }
-                    if (strlen($order->delivery_street1)) {
-                        $receipt['ShipAddress']['Addr' . $i] = $order->delivery_street1;
-                        $i++;
-                    }
-                    if (strlen($order->delivery_street2)) {
-                        $receipt['ShipAddress']['Addr' . $i] = $order->delivery_street2;
-                        $i++;
-                    }
-                    $receipt['ShipAddress']['City'] = $order->delivery_city;
-                    $receipt['ShipAddress']['State'] = uc_get_zone_code($order->delivery_zone);
-                    $receipt['ShipAddress']['PostalCode'] = $order->delivery_postal_code;
-                    $receipt['ShipAddress']['Country'] = $shipping_country[0]['country_iso_code_2'];
-                    $receipt['PaymentMethodRef']['ListID'] = $uc_qb_per_order_settings['payment_method'];
-                    $receipt['Memo'] = $order->order_id;
-                    $receipt['CustomerMsgRef']['ListID'] = $uc_qb_per_order_settings['customer_msg'];
-                    $receipt['CustomerSalesTaxCodeRef'] = array();
-                    $receipt['DepositToAccountRef']['ListID'] = $uc_qb_per_order_settings['receipt_deposit_acct'];
-                    $line_items = &$receipt['SalesReceiptLineAdd'];
-                    if (count($order->products)) {
-                        foreach ($order->products as $product) {
-                            $line_item = array();
-                            $line_item['ItemRef']['ListID'] = $product->uc_qb_per_order_product_list_id;
-                            $line_item['Desc'] = htmlentities(substr($product->model . ' ' . $product->title, 0, 4095));
-                            $line_item['Quantity'] = $product->qty;
-                            $line_item['Rate'] = uc_currency_format($product->price, FALSE, FALSE, '.');
-                            $line_items[] = $line_item;
-                        }
-                    }
-                    if (count($order->line_items)) {
-                        foreach ($order->line_items as $item) {
-                            $line_item = array();
-                            if (strlen($item['uc_qb_per_order_line_item_list_id']) && $item['type'] != 'tax') {
-                                $line_item['ItemRef']['ListID'] = $item['uc_qb_per_order_line_item_list_id'];
-                                $line_item['Desc'] = htmlentities(substr($item['title'], 0, 4095));
-                                $line_item['Amount'] = uc_currency_format($item['amount'], FALSE, FALSE, '.');
-                                $line_items[] = $line_item;
-                            }
-                            elseif ($item['type'] == 'tax') {
-                                $receipt['CustomerSalesTaxCodeRef']['ListID'] = $item['uc_qb_per_order_line_item_list_id'];
-                            }
-                        }
-                        if (!isset($receipt['CustomerSalesTaxCodeRef']) || !strlen($receipt['CustomerSalesTaxCodeRef']['ListID'])) {
-                            unset($receipt['CustomerSalesTaxCodeRef']);
-                        }
-                    }
-                    $querys[] = array(
-                        'name' => 'SalesReceiptAddRq',
-                        'request' => array(
-                            'SalesReceiptAdd' => $receipt,
-                        ),
-                        'data' => $order,
-                        'callback' => array('uc_qb_per_order_salesreceiptadd_response'),
-                    );
-                }
-                elseif ($order->uc_qb_per_order->qb_import_type != 0 && $order->uc_qb_per_order->qb_import_type == UQPO_INVOICE) {
-                    $invoice = array();
-                    $billing_country = uc_get_country_data(array('country_id' => $order->billing_country));
-                    $shipping_country = uc_get_country_data(array('country_id' => $order->delivery_country));
-                    $invoice['CustomerRef']['ListID'] = $order->uc_qb_per_order_user_list_id;
-                    if (!empty($uc_qb_per_order_settings['class'])) {
-                        $invoice['ClassRef']['ListID'] = $uc_qb_per_order_settings['class'];
-                    }
-                    $invoice['ARAccountRef']['ListID'] = $uc_qb_per_order_settings['invoice_receivable_acct'];
-                    $invoice['TxnDate'] = date('Y-m-d', $order->created);
-                    // billing address
-                    $i = 1;
-                    $invoice['BillAddress'] = array();
-                    if (strlen($order->billing_company)) {
-                        $invoice['BillAddress']['Addr' . $i] = $order->billing_company;
-                        $i++;
-                    }
-                    if (strlen($order->billing_first_name) || strlen($order->billing_last_name)) {
-                        $invoice['BillAddress']['Addr' . $i] = $order->billing_first_name . ' ' . $order->billing_last_name;
-                        $i++;
-                    }
-                    if (strlen($order->billing_street1)) {
-                        $invoice['BillAddress']['Addr' . $i] = $order->billing_street1;
-                        $i++;
-                    }
-                    if (strlen($order->billing_street2)) {
-                        $invoice['BillAddress']['Addr' . $i] = $order->billing_street2;
-                        $i++;
-                    }
-                    $invoice['BillAddress']['City'] = $order->billing_city;
-                    $invoice['BillAddress']['State'] = uc_get_zone_code($order->billing_zone);
-                    $invoice['BillAddress']['PostalCode'] = $order->billing_postal_code;
-                    $invoice['BillAddress']['Country'] = $billing_country[0]['country_iso_code_2'];
-                    // shipping address
-                    $i = 1;
-                    $invoice['ShipAddress'] = array();
-                    if (strlen($order->delivery_company)) {
-                        $invoice['ShipAddress']['Addr' . $i] = $order->delivery_company;
-                        $i++;
-                    }
-                    if (strlen($order->delivery_first_name) || strlen($order->delivery_last_name)) {
-                        $invoice['ShipAddress']['Addr' . $i] = $order->delivery_first_name . ' ' . $order->delivery_last_name;
-                        $i++;
-                    }
-                    if (strlen($order->delivery_street1)) {
-                        $invoice['ShipAddress']['Addr' . $i] = $order->delivery_street1;
-                        $i++;
-                    }
-                    if (strlen($order->delivery_street2)) {
-                        $invoice['ShipAddress']['Addr' . $i] = $order->delivery_street2;
-                        $i++;
-                    }
-                    $invoice['ShipAddress']['City'] = $order->delivery_city;
-                    $invoice['ShipAddress']['State'] = uc_get_zone_code($order->delivery_zone);
-                    $invoice['ShipAddress']['PostalCode'] = $order->delivery_postal_code;
-                    $invoice['ShipAddress']['Country'] = $shipping_country[0]['country_iso_code_2'];
-                    $invoice['PONumber'] = '';
-                    $invoice['Memo'] = $order->order_id;
-                    $invoice['CustomerMsgRef']['ListID'] = $uc_qb_per_order_settings['customer_msg'];
-                    $invoice['CustomerSalesTaxCodeRef'] = array();
-
-                    $line_items = &$invoice['InvoiceLineAdd'];
-                    if (count($order->products)) {
-                        foreach ($order->products as $product) {
-                            $line_item = array();
-                            $line_item['ItemRef']['ListID'] = $product->uc_qb_per_order_product_list_id;
-                            $line_item['Desc'] = htmlentities(substr($product->model . ' ' . $product->title, 0, 4095));
-                            $line_item['Quantity'] = $product->qty;
-                            $line_item['Rate'] = uc_currency_format($product->price, FALSE, FALSE, '.');
-                            $line_items[] = $line_item;
-                        }
-                    }
-                    if (count($order->line_items)) {
-                        foreach ($order->line_items as $item) {
-                            $line_item = array();
-                            if (strlen($item['uc_qb_per_order_line_item_list_id']) && $item['type'] != 'tax') {
-                                $line_item['ItemRef']['ListID'] = $item['uc_qb_per_order_line_item_list_id'];
-                                $line_item['Desc'] = htmlentities(substr($item['title'], 0, 4095));
-                                $line_item['Amount'] = uc_currency_format($item['amount'], FALSE, FALSE, '.');
-                                $line_items[] = $line_item;
-                            }
-                            elseif ($item['type'] == 'tax') {
-                                $invoice['CustomerSalesTaxCodeRef']['ListID'] = $item['uc_qb_per_order_line_item_list_id'];
-                            }
-                        }
-                        if (!isset($invoice['CustomerSalesTaxCodeRef']) || !strlen($invoice['CustomerSalesTaxCodeRef']['ListID'])) {
-                            unset($invoice['CustomerSalesTaxCodeRef']);
-                        }
-                    }
-                    $querys[] = array(
-                        'name' => 'InvoiceAddRq',
-                        'request' => array(
-                            'InvoiceAdd' => $invoice,
-                        ),
-                        'data' => $order,
-                        'callback' => array('uc_qb_per_order_invoiceadd_response'),
-                    );
-                }
-            }
+          }
         }
+      }
+      // check customer
+      if (!$order->uc_qb_per_order_user_list_id) {
+        $querys[] = array(
+            'name' => 'CustomerQueryRq',
+            'request' => array(
+                'FullName' => $order->uc_qb_per_order_customer_name
+            ),
+            'data' => $order,
+            'callback' => array('uc_qb_per_order_customer_query_response'),
+        );
+      }
+      if (empty($querys)) {
+        $tax_id = NULL;
+        if (count($order->line_items)) {
+          foreach ($order->line_items as $item) {
+            if ($item['type'] == 'tax') {
+              $tax_id = $item['uc_qb_per_order_line_item_list_id'];
+            }
+          }
+        }
+        if ($order->uc_qb_per_order->qb_import_type != 0 && $order->uc_qb_per_order->qb_import_type == UQPO_RECEIPT) {
+          // import to QuickBooks as receipt
+          $receipt = array();
+          $billing_country = uc_get_country_data(array('country_id' => $order->billing_country));
+          $shipping_country = uc_get_country_data(array('country_id' => $order->delivery_country));
+          $receipt['CustomerRef']['ListID'] = $order->uc_qb_per_order_user_list_id;
+          if (!empty($uc_qb_per_order_settings['class'])) {
+            $receipt['ClassRef']['ListID'] = $uc_qb_per_order_settings['class'];
+          }
+          $receipt['TxnDate'] = date('Y-m-d', $order->created);
+          // billing address
+          $i = 1;
+          $receipt['BillAddress'] = array();
+          if (strlen($order->billing_company)) {
+            $receipt['BillAddress']['Addr' . $i] = $order->billing_company;
+            $i++;
+          }
+          if (strlen($order->billing_first_name) || strlen($order->billing_last_name)) {
+            $receipt['BillAddress']['Addr' . $i] = $order->billing_first_name . ' ' . $order->billing_last_name;
+            $i++;
+          }
+          if (strlen($order->billing_street1)) {
+            $receipt['BillAddress']['Addr' . $i] = $order->billing_street1;
+            $i++;
+          }
+          if (strlen($order->billing_street2)) {
+            $receipt['BillAddress']['Addr' . $i] = $order->billing_street2;
+            $i++;
+          }
+          $receipt['BillAddress']['City'] = $order->billing_city;
+          $receipt['BillAddress']['State'] = uc_get_zone_code($order->billing_zone);
+          $receipt['BillAddress']['PostalCode'] = $order->billing_postal_code;
+          $receipt['BillAddress']['Country'] = $billing_country[0]['country_iso_code_2'];
+          // shipping address
+          $i = 1;
+          $receipt['ShipAddress'] = array();
+          if (strlen($order->delivery_company)) {
+            $receipt['ShipAddress']['Addr' . $i] = $order->delivery_company;
+            $i++;
+          }
+          if (strlen($order->delivery_first_name) || strlen($order->delivery_last_name)) {
+            $receipt['ShipAddress']['Addr' . $i] = $order->delivery_first_name . ' ' . $order->delivery_last_name;
+            $i++;
+          }
+          if (strlen($order->delivery_street1)) {
+            $receipt['ShipAddress']['Addr' . $i] = $order->delivery_street1;
+            $i++;
+          }
+          if (strlen($order->delivery_street2)) {
+            $receipt['ShipAddress']['Addr' . $i] = $order->delivery_street2;
+            $i++;
+          }
+          $receipt['ShipAddress']['City'] = $order->delivery_city;
+          $receipt['ShipAddress']['State'] = uc_get_zone_code($order->delivery_zone);
+          $receipt['ShipAddress']['PostalCode'] = $order->delivery_postal_code;
+          $receipt['ShipAddress']['Country'] = $shipping_country[0]['country_iso_code_2'];
+          $receipt['PaymentMethodRef']['ListID'] = $uc_qb_per_order_settings['payment_method'];
+          if ($uc_qb_per_order_qb_variables['qb_host_info']['country'] == 'US' && $tax_id) {
+            $receipt['ItemSalesTaxRef']['ListID'] = $tax_id;
+          }
+          $receipt['Memo'] = $order->order_id;
+          $receipt['CustomerMsgRef']['ListID'] = $uc_qb_per_order_settings['customer_msg'];
+          $receipt['DepositToAccountRef']['ListID'] = $uc_qb_per_order_settings['receipt_deposit_acct'];
+          $line_items = &$receipt['SalesReceiptLineAdd'];
+          if (count($order->products)) {
+            foreach ($order->products as $product) {
+              $line_item = array();
+              $line_item['ItemRef']['ListID'] = $product->uc_qb_per_order_product_list_id;
+              $line_item['Desc'] = htmlentities(substr($product->model . ' ' . $product->title, 0, 4095));
+              $line_item['Quantity'] = $product->qty;
+              $line_item['Rate'] = uc_currency_format($product->price, FALSE, FALSE, '.');
+              if ($uc_qb_per_order_qb_variables['qb_host_info']['country'] == 'US' && $tax_id) {
+                $line_item['SalesTaxCodeRef']['FullName'] = $uc_qb_per_order_qb_variables['qb_preferences']['default_taxable_sales_tax_code'];
+              }
+              elseif ($tax_id) {
+                $line_item['SalesTaxCodeRef']['FullName'] = $tax_id;
+              }
+              $line_items[] = $line_item;
+            }
+          }
+          if (count($order->line_items)) {
+            foreach ($order->line_items as $item) {
+              $line_item = array();
+              if (strlen($item['uc_qb_per_order_line_item_list_id']) && $item['type'] != 'tax') {
+                $line_item['ItemRef']['ListID'] = $item['uc_qb_per_order_line_item_list_id'];
+                $line_item['Desc'] = htmlentities(substr($item['title'], 0, 4095));
+                $line_item['Amount'] = uc_currency_format($item['amount'], FALSE, FALSE, '.');
+                if ($uc_qb_per_order_qb_variables['qb_host_info']['country'] == 'US' && $tax_id) {
+                  $line_item['SalesTaxCodeRef']['FullName'] = $uc_qb_per_order_qb_variables['qb_preferences']['default_taxable_sales_tax_code'];
+                }
+                elseif ($tax_id) {
+                  $line_item['SalesTaxCodeRef']['FullName'] = $tax_id;
+                }
+                $line_items[] = $line_item;
+              }
+            }
+          }
+          $querys[] = array(
+              'name' => 'SalesReceiptAddRq',
+              'request' => array(
+                  'SalesReceiptAdd' => $receipt,
+              ),
+              'data' => $order,
+              'callback' => array('uc_qb_per_order_salesreceiptadd_response'),
+          );
+        }
+        elseif ($order->uc_qb_per_order->qb_import_type != 0 && $order->uc_qb_per_order->qb_import_type == UQPO_INVOICE) {
+          $invoice = array();
+          $billing_country = uc_get_country_data(array('country_id' => $order->billing_country));
+          $shipping_country = uc_get_country_data(array('country_id' => $order->delivery_country));
+          $invoice['CustomerRef']['ListID'] = $order->uc_qb_per_order_user_list_id;
+          if (!empty($uc_qb_per_order_settings['class'])) {
+            $invoice['ClassRef']['ListID'] = $uc_qb_per_order_settings['class'];
+          }
+          $invoice['ARAccountRef']['ListID'] = $uc_qb_per_order_settings['invoice_receivable_acct'];
+          $invoice['TxnDate'] = date('Y-m-d', $order->created);
+          // billing address
+          $i = 1;
+          $invoice['BillAddress'] = array();
+          if (strlen($order->billing_company)) {
+            $invoice['BillAddress']['Addr' . $i] = $order->billing_company;
+            $i++;
+          }
+          if (strlen($order->billing_first_name) || strlen($order->billing_last_name)) {
+            $invoice['BillAddress']['Addr' . $i] = $order->billing_first_name . ' ' . $order->billing_last_name;
+            $i++;
+          }
+          if (strlen($order->billing_street1)) {
+            $invoice['BillAddress']['Addr' . $i] = $order->billing_street1;
+            $i++;
+          }
+          if (strlen($order->billing_street2)) {
+            $invoice['BillAddress']['Addr' . $i] = $order->billing_street2;
+            $i++;
+          }
+          $invoice['BillAddress']['City'] = $order->billing_city;
+          $invoice['BillAddress']['State'] = uc_get_zone_code($order->billing_zone);
+          $invoice['BillAddress']['PostalCode'] = $order->billing_postal_code;
+          $invoice['BillAddress']['Country'] = $billing_country[0]['country_iso_code_2'];
+          // shipping address
+          $i = 1;
+          $invoice['ShipAddress'] = array();
+          if (strlen($order->delivery_company)) {
+            $invoice['ShipAddress']['Addr' . $i] = $order->delivery_company;
+            $i++;
+          }
+          if (strlen($order->delivery_first_name) || strlen($order->delivery_last_name)) {
+            $invoice['ShipAddress']['Addr' . $i] = $order->delivery_first_name . ' ' . $order->delivery_last_name;
+            $i++;
+          }
+          if (strlen($order->delivery_street1)) {
+            $invoice['ShipAddress']['Addr' . $i] = $order->delivery_street1;
+            $i++;
+          }
+          if (strlen($order->delivery_street2)) {
+            $invoice['ShipAddress']['Addr' . $i] = $order->delivery_street2;
+            $i++;
+          }
+          $invoice['ShipAddress']['City'] = $order->delivery_city;
+          $invoice['ShipAddress']['State'] = uc_get_zone_code($order->delivery_zone);
+          $invoice['ShipAddress']['PostalCode'] = $order->delivery_postal_code;
+          $invoice['ShipAddress']['Country'] = $shipping_country[0]['country_iso_code_2'];
+          $invoice['PONumber'] = '';
+          if ($uc_qb_per_order_qb_variables['qb_host_info']['country'] == 'US' && $tax_id) {
+            $invoice['ItemSalesTaxRef']['ListID'] = $tax_id;
+          }
+          $invoice['Memo'] = $order->order_id;
+          $invoice['CustomerMsgRef']['ListID'] = $uc_qb_per_order_settings['customer_msg'];
+
+          $line_items = &$invoice['InvoiceLineAdd'];
+          if (count($order->products)) {
+            foreach ($order->products as $product) {
+              $line_item = array();
+              $line_item['ItemRef']['ListID'] = $product->uc_qb_per_order_product_list_id;
+              $line_item['Desc'] = htmlentities(substr($product->model . ' ' . $product->title, 0, 4095));
+              $line_item['Quantity'] = $product->qty;
+              $line_item['Rate'] = uc_currency_format($product->price, FALSE, FALSE, '.');
+              if ($uc_qb_per_order_qb_variables['qb_host_info']['country'] == 'US' && $tax_id) {
+                $line_item['SalesTaxCodeRef']['FullName'] = $uc_qb_per_order_qb_variables['qb_preferences']['default_taxable_sales_tax_code'];
+              }
+              elseif ($tax_id) {
+                $line_item['SalesTaxCodeRef']['FullName'] = $tax_id;
+              }
+              $line_items[] = $line_item;
+            }
+          }
+          if (count($order->line_items)) {
+            foreach ($order->line_items as $item) {
+              $line_item = array();
+              if (strlen($item['uc_qb_per_order_line_item_list_id']) && $item['type'] != 'tax') {
+                $line_item['ItemRef']['ListID'] = $item['uc_qb_per_order_line_item_list_id'];
+                $line_item['Desc'] = htmlentities(substr($item['title'], 0, 4095));
+                $line_item['Amount'] = uc_currency_format($item['amount'], FALSE, FALSE, '.');
+                if ($uc_qb_per_order_qb_variables['qb_host_info']['country'] == 'US' && $tax_id) {
+                  $line_item['SalesTaxCodeRef']['FullName'] = $uc_qb_per_order_qb_variables['qb_preferences']['default_taxable_sales_tax_code'];
+                }
+                elseif ($tax_id) {
+                  $line_item['SalesTaxCodeRef']['FullName'] = $tax_id;
+                }
+                $line_items[] = $line_item;
+              }
+            }
+          }
+          $querys[] = array(
+              'name' => 'InvoiceAddRq',
+              'request' => array(
+                  'InvoiceAdd' => $invoice,
+              ),
+              'data' => $order,
+              'callback' => array('uc_qb_per_order_invoiceadd_response'),
+          );
+        }
+      }
     }
-    if (!empty($querys)) {
-        watchdog('uqpodebug', print_r($querys, TRUE), NULL, WATCHDOG_DEBUG);
-        return $querys;
-    }
+  }
+  if (!empty($querys)) {
+    watchdog('uqpodebug', print_r($querys, TRUE), NULL, WATCHDOG_DEBUG);
+    return $querys;
+  }
 }
 
 function uc_qb_per_order_salesreceiptadd_response($response, $data, $status, $message) {
-    if ($status != 0) {
-        _uc_qb_per_order_set_error($data->order_id, $status, $message);
-    }
-    else {
-        db_query("UPDATE {uc_qb_per_order} SET qb_ref_no = '%s', qb_list_id = '%s',
+  if ($status != 0) {
+    _uc_qb_per_order_set_error($data->order_id, $status, $message);
+  }
+  else {
+    db_query("UPDATE {uc_qb_per_order} SET qb_ref_no = '%s', qb_list_id = '%s',
             qb_total_amount = %f, qb_imported_at = %d, qb_last_message = '%s' WHERE order_id = %d",
-                $response[0]['RefNumber'], $response[0]['TxnID'], $response[0]['TotalAmount'],
-                time(), t('Imported successfully. Receipt#: @number', array('@number' => $response[0]['RefNumber'])), $data->order_id
-        );
-    }
+            $response[0]['RefNumber'], $response[0]['TxnID'], $response[0]['TotalAmount'],
+            time(), t('Imported successfully. Receipt#: @number', array('@number' => $response[0]['RefNumber'])), $data->order_id
+    );
+  }
 }
 
 function _uc_qb_per_order_set_error($order_id, $status, $message) {
-    $error = t('Import to QuickBooks failed. Error code: @error_code. Error message: @message', array(
-                '@error_code' => $status, '@message' => $message
-                    )
-    );
-    db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_last_message = '%s', qb_ref_no = NULL, qb_imported_at = NULL WHERE order_id = %d",
-            0, $error, $order_id);
+  $error = t('Import to QuickBooks failed. Error code: @error_code. Error message: @message', array(
+              '@error_code' => $status, '@message' => $message
+                  )
+  );
+  db_query("UPDATE {uc_qb_per_order} SET qb_import_type = %d, qb_last_message = '%s', qb_ref_no = NULL, qb_imported_at = NULL WHERE order_id = %d",
+          0, $error, $order_id);
 }
 
 function uc_qb_per_order_invoiceadd_response($response, $data, $status, $message) {
-    if ($status != 0) {
-        _uc_qb_per_order_set_error($data->order_id, $status, $message);
-    }
-    else {
-        db_query("UPDATE {uc_qb_per_order} SET qb_ref_no = '%s', qb_list_id = '%s',
+  if ($status != 0) {
+    _uc_qb_per_order_set_error($data->order_id, $status, $message);
+  }
+  else {
+    db_query("UPDATE {uc_qb_per_order} SET qb_ref_no = '%s', qb_list_id = '%s',
             qb_total_amount = %f, qb_imported_at = %d, qb_last_message = '%s' WHERE order_id = %d",
-                $response[0]['RefNumber'], $response[0]['TxnID'], $response[0]['Subtotal'] + $response[0]['SalesTaxTotal'],
-                time(), t('Imported successfully. Invoice#: @number', array('@number' => $response[0]['RefNumber'])), $data->order_id
-        );
-    }
+            $response[0]['RefNumber'], $response[0]['TxnID'], $response[0]['Subtotal'] + $response[0]['SalesTaxTotal'],
+            time(), t('Imported successfully. Invoice#: @number', array('@number' => $response[0]['RefNumber'])), $data->order_id
+    );
+  }
 }
 
 function uc_qb_per_order_customer_query_response($response, $data, $status, $message) {
-    if ($status == 0) {
-        _uc_qb_per_order_user_mapping($response, $data);
+  if ($status == 0) {
+    _uc_qb_per_order_user_mapping($response, $data);
+  }
+  else {
+    $billing_country = uc_get_country_data(array('country_id' => $data->billing_country));
+    $shipping_country = uc_get_country_data(array('country_id' => $data->delivery_country));
+    $customer = array(
+        'Name' => $data->uc_qb_per_order_customer_name,
+        'IsActive' => 'true',
+        'CompanyName' => $data->billing_company,
+        'FirstName' => $data->billing_first_name,
+        'LastName' => $data->billing_last_name,
+        'BillAddress' => array(),
+        'Phone' => $data->billing_phone,
+        'Email' => $data->primary_email,
+    );
+    $i = 1;
+    if (strlen($data->billing_company)) {
+      $customer['BillAddress']['Addr' . $i] = $data->billing_company;
+      $i++;
     }
-    else {
-        $billing_country = uc_get_country_data(array('country_id' => $data->billing_country));
-        $shipping_country = uc_get_country_data(array('country_id' => $data->delivery_country));
-        $customer = array(
-            'Name' => $data->uc_qb_per_order_customer_name,
-            'IsActive' => 'true',
-            'CompanyName' => $data->billing_company,
-            'FirstName' => $data->billing_first_name,
-            'LastName' => $data->billing_last_name,
-            'BillAddress' => array(),
-            'Phone' => $data->billing_phone,
-            'Email' => $data->primary_email,
-        );
-        $i = 1;
-        if (strlen($data->billing_company)) {
-            $customer['BillAddress']['Addr' . $i] = $data->billing_company;
-            $i++;
-        }
-        if (strlen($data->billing_first_name) || strlen($data->billing_last_name)) {
-            $customer['BillAddress']['Addr' . $i] = $data->billing_first_name . ' ' . $data->billing_last_name;
-            $i++;
-        }
-        if (strlen($data->billing_street1)) {
-            $customer['BillAddress']['Addr' . $i] = $data->billing_street1;
-            $i++;
-        }
-        if (strlen($data->billing_street2)) {
-            $customer['BillAddress']['Addr' . $i] = $data->billing_street2;
-            $i++;
-        }
-        $customer['BillAddress']['City'] = $data->billing_city;
-        $customer['BillAddress']['State'] = uc_get_zone_code($data->billing_zone);
-        $customer['BillAddress']['PostalCode'] = $data->billing_postal_code;
-        $customer['BillAddress']['Country'] = $billing_country[0]['country_iso_code_2'];
+    if (strlen($data->billing_first_name) || strlen($data->billing_last_name)) {
+      $customer['BillAddress']['Addr' . $i] = $data->billing_first_name . ' ' . $data->billing_last_name;
+      $i++;
+    }
+    if (strlen($data->billing_street1)) {
+      $customer['BillAddress']['Addr' . $i] = $data->billing_street1;
+      $i++;
+    }
+    if (strlen($data->billing_street2)) {
+      $customer['BillAddress']['Addr' . $i] = $data->billing_street2;
+      $i++;
+    }
+    $customer['BillAddress']['City'] = $data->billing_city;
+    $customer['BillAddress']['State'] = uc_get_zone_code($data->billing_zone);
+    $customer['BillAddress']['PostalCode'] = $data->billing_postal_code;
+    $customer['BillAddress']['Country'] = $billing_country[0]['country_iso_code_2'];
 
-        $query = array(
-            'name' => 'CustomerAddRq',
-            'request' => array(
-                'CustomerAdd' => $customer,
-            ),
-            'data' => $data,
-            'callback' => array('uc_qb_per_order_customeradd_responses'),
-        );
-        qbwc_request_queue($query);
-    }
+    $query = array(
+        'name' => 'CustomerAddRq',
+        'request' => array(
+            'CustomerAdd' => $customer,
+        ),
+        'data' => $data,
+        'callback' => array('uc_qb_per_order_customeradd_responses'),
+    );
+    qbwc_request_queue($query);
+  }
 }
 
 function _uc_qb_per_order_user_mapping($response, $data) {
-    $ret = db_result(db_query("SELECT uid FROM {uc_qb_per_order_user_mapping} WHERE name = '%s'", $data->uc_qb_per_order_customer_name));
-    if ($ret) {
-        db_query("UPDATE {uc_qb_per_order_user_mapping} SET qb_list_id = '%s' WHERE name = '%s'", $response[0]['ListID'], $data->uc_qb_per_order_customer_name);
-    }
-    else {
-        db_query("INSERT INTO {uc_qb_per_order_user_mapping} (uid, name, email, qb_list_id, qb_account_no) VALUES (%d, '%s', '%s', '%s', '%s')",
-                $data->uid, $data->uc_qb_per_order_customer_name, $data->primary_email, $response[0]['ListID'], $response[0]['AccountNumber']);
-    }
+  $ret = db_result(db_query("SELECT uid FROM {uc_qb_per_order_user_mapping} WHERE name = '%s'", $data->uc_qb_per_order_customer_name));
+  if ($ret) {
+    db_query("UPDATE {uc_qb_per_order_user_mapping} SET qb_list_id = '%s' WHERE name = '%s'", $response[0]['ListID'], $data->uc_qb_per_order_customer_name);
+  }
+  else {
+    db_query("INSERT INTO {uc_qb_per_order_user_mapping} (uid, name, email, qb_list_id, qb_account_no) VALUES (%d, '%s', '%s', '%s', '%s')",
+            $data->uid, $data->uc_qb_per_order_customer_name, $data->primary_email, $response[0]['ListID'], $response[0]['AccountNumber']);
+  }
 }
 
 function uc_qb_per_order_customeradd_responses($response, $data, $status, $message) {
-    if ($status != 0) {
-        _uc_qb_per_order_set_error($data->order_id, $status, $message);
-    }
-    else {
-        _uc_qb_per_order_user_mapping($response, $data);
-    }
+  if ($status != 0) {
+    _uc_qb_per_order_set_error($data->order_id, $status, $message);
+  }
+  else {
+    _uc_qb_per_order_user_mapping($response, $data);
+  }
 }
 
 function uc_qb_per_order_itemservice_query_response($response, $data, $status, $message) {
-    if ($status == 0) {
-        _uc_qb_per_order_service_item_mapping($response, $data);
-    }
-    else {
-        $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
-        $query = array(
-            'name' => 'ItemServiceAddRq',
-            'request' => array(
-                'ItemServiceAdd' => array(
-                    '_orderID' => $response['_orderID'],
-                    'Name' => $data->model,
-                    'IsActive' => 'true',
-                    'SalesOrPurchase' => array(
-                        'Price' => '0.000',
-                        'AccountRef' => array(
-                            'ListID' => $uc_qb_per_order_settings['item_acct']['income'],
-                        )
+  if ($status == 0) {
+    _uc_qb_per_order_service_item_mapping($response, $data);
+  }
+  else {
+    $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
+    $query = array(
+        'name' => 'ItemServiceAddRq',
+        'request' => array(
+            'ItemServiceAdd' => array(
+                '_orderID' => $response['_orderID'],
+                'Name' => $data->model,
+                'IsActive' => 'true',
+                'SalesOrPurchase' => array(
+                    'Price' => '0.000',
+                    'AccountRef' => array(
+                        'ListID' => $uc_qb_per_order_settings['item_acct']['income'],
                     )
-                ),
+                )
             ),
-            'data' => $data,
-            'callback' => array('uc_qb_per_order_itemserviceadd_response'),
-        );
-        qbwc_request_queue($query);
-    }
+        ),
+        'data' => $data,
+        'callback' => array('uc_qb_per_order_itemserviceadd_response'),
+    );
+    qbwc_request_queue($query);
+  }
 }
 
 function uc_qb_per_order_itemserviceadd_response($response, $data, $status, $message) {
-    if ($status != 0) {
-        _uc_qb_per_order_set_error($data->order_id, $status, $message);
-    }
-    else {
-        _uc_qb_per_order_service_item_mapping($response, $data);
-    }
+  if ($status != 0) {
+    _uc_qb_per_order_set_error($data->order_id, $status, $message);
+  }
+  else {
+    _uc_qb_per_order_service_item_mapping($response, $data);
+  }
 }
 
 function _uc_qb_per_order_service_item_mapping($response, $data) {
-    $ret = db_result(db_query("SELECT model FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $data->model));
-    if ($ret) {
-        db_query("UPDATE {uc_qb_per_order_product_mapping} SET qb_list_id = '%s' WHERE model = '%s'", $response[0]['ListID'], $data->model);
-    }
-    else {
-        db_query("INSERT INTO {uc_qb_per_order_product_mapping} (product_nid, qb_list_id, model) VALUES (%d, '%s', '%s')",
-                0, $response[0]['ListID'], $data->model);
-    }
+  $ret = db_result(db_query("SELECT model FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $data->model));
+  if ($ret) {
+    db_query("UPDATE {uc_qb_per_order_product_mapping} SET qb_list_id = '%s' WHERE model = '%s'", $response[0]['ListID'], $data->model);
+  }
+  else {
+    db_query("INSERT INTO {uc_qb_per_order_product_mapping} (product_nid, qb_list_id, model) VALUES (%d, '%s', '%s')",
+            0, $response[0]['ListID'], $data->model);
+  }
 }
 
 function uc_qb_per_order_iteminventory_query_response($response, $data, $status, $message) {
-    if ($status == 0) {
-        _uc_qb_per_order_product_mapping($response, $data);
-    }
-    else {
-        $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
-        $query = array(
-            'name' => 'ItemInventoryAddRq',
-            'request' => array(
-                'ItemInventoryAdd' => array(
-                    '_orderID' => $response['_orderID'],
-                    'Name' => $data->model,
-                    'IsActive' => 'true',
-                    'SalesDesc' => $data->title,
-                    'SalesPrice' => $data->price,
-                    'IncomeAccountRef' => array(
-                        'ListID' => $uc_qb_per_order_settings['item_acct']['income'],
-                    ),
-                    'PurchaseCost' => $product->cost,
-                    'COGSAccountRef' => array(
-                        'ListID' => $uc_qb_per_order_settings['item_acct']['cogs'],
-                    ),
-                    'AssetAccountRef' => array(
-                        'ListID' => $uc_qb_per_order_settings['item_acct']['asset'],
-                    ),
-                    'InventoryDate' => date('Y-m-d', time()),
+  if ($status == 0) {
+    _uc_qb_per_order_product_mapping($response, $data);
+  }
+  else {
+    $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
+    $query = array(
+        'name' => 'ItemInventoryAddRq',
+        'request' => array(
+            'ItemInventoryAdd' => array(
+                '_orderID' => $response['_orderID'],
+                'Name' => $data->model,
+                'IsActive' => 'true',
+                'SalesDesc' => $data->title,
+                'SalesPrice' => $data->price,
+                'IncomeAccountRef' => array(
+                    'ListID' => $uc_qb_per_order_settings['item_acct']['income'],
                 ),
+                'PurchaseCost' => $product->cost,
+                'COGSAccountRef' => array(
+                    'ListID' => $uc_qb_per_order_settings['item_acct']['cogs'],
+                ),
+                'AssetAccountRef' => array(
+                    'ListID' => $uc_qb_per_order_settings['item_acct']['asset'],
+                ),
+                'InventoryDate' => date('Y-m-d', time()),
             ),
-            'data' => $data,
-            'callback' => array('uc_qb_per_order_iteminventoryadd_response'),
-        );
-        qbwc_request_queue($query);
-    }
+        ),
+        'data' => $data,
+        'callback' => array('uc_qb_per_order_iteminventoryadd_response'),
+    );
+    qbwc_request_queue($query);
+  }
 }
 
 function uc_qb_per_order_iteminventoryadd_response($response, $data, $status, $message) {
-    if ($status != 0) {
-        _uc_qb_per_order_set_error($data->order_id, $status, $message);
-    }
-    else {
-        _uc_qb_per_order_product_mapping($response, $data);
-    }
+  if ($status != 0) {
+    _uc_qb_per_order_set_error($data->order_id, $status, $message);
+  }
+  else {
+    _uc_qb_per_order_product_mapping($response, $data);
+  }
 }
 
 function _uc_qb_per_order_product_mapping($response, $data) {
-    $ret = db_result(db_query("SELECT product_nid FROM {uc_qb_per_order_product_mapping} WHERE product_nid = %d", $data->nid));
-    if ($ret) {
-        db_query("UPDATE {uc_qb_per_order_product_mapping} SET qb_list_id = '%s', model = '%s', cost = %f, price = %f WHERE product_nid = %d",
-                $response[0]['ListID'], $response[0]['Name'], $response[0]['PurchaseCost'], $response[0]['SalesPrice'], $data->nid
+  $ret = db_result(db_query("SELECT product_nid FROM {uc_qb_per_order_product_mapping} WHERE product_nid = %d", $data->nid));
+  if ($ret) {
+    db_query("UPDATE {uc_qb_per_order_product_mapping} SET qb_list_id = '%s', model = '%s', cost = %f, price = %f WHERE product_nid = %d",
+            $response[0]['ListID'], $response[0]['Name'], $response[0]['PurchaseCost'], $response[0]['SalesPrice'], $data->nid
+    );
+  }
+  else {
+    db_query("INSERT INTO {uc_qb_per_order_product_mapping} (product_nid, qb_list_id, model, cost, price) VALUES (%d, '%s', '%s', %f, %f)",
+            $data->nid, $response[0]['ListID'], $data->model, $data->cost, $data->price
+    );
+  }
+}
+
+function uc_qb_per_order_host_query_response($response, $data, $status, $message) {
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    $uc_qb_per_order_qb_variables['qb_host_info'] = array(
+        'product_name' => $response[0]['ProductName'],
+        'major_version' => $response[0]['MajorVersion'],
+        'minor_version' => $response[0]['MinorVersion'],
+        'country' => $response[0]['Country'],
+    );
+  }
+  else {
+    $uc_qb_per_order_qb_variables['qb_host_info'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+}
+
+function uc_qb_per_order_preferences_query_response($response, $data, $status, $message) {
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    $uc_qb_per_order_qb_variables['qb_preferences'] = array(
+        'is_using_class_tracking' => $response[0]['AccountingPreferences']['IsUsingClassTracking'],
+        'is_multi_currency_on' => $response[0]['MultiCurrencyPreferences']['IsMultiCurrencyOn'],
+        'is_using_inventory' => $response[0]['PurchasesAndVendorsPreferences']['IsUsingInventory'],
+        'default_item_sales_tax' => $response[0]['SalesTaxPreferences']['DefaultItemSalesTaxRef']['FullName'],
+        'default_taxable_sales_tax_code' => $response[0]['SalesTaxPreferences']['DefaultTaxableSalesTaxCodeRef']['FullName'],
+        'default_non_taxable_sales_tax_code' => $response[0]['SalesTaxPreferences']['DefaultNonTaxableSalesTaxCodeRef']['FullName'],
+        'is_using_customer_tax_code' => $response[0]['SalesTaxPreferences']['IsUsingCustomerTaxCode'],
+    );
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+}
+
+function uc_qb_per_order_item_sales_tax_query_response($response, $data, $status, $message) {
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['item_sales_tax'][] = array(
+            'list_id' => $v['ListID'],
+            'name' => $v['Name'],
+            'desc' => $v['ItemDesc'],
         );
+      }
     }
-    else {
-        db_query("INSERT INTO {uc_qb_per_order_product_mapping} (product_nid, qb_list_id, model, cost, price) VALUES (%d, '%s', '%s', %f, %f)",
-                $data->nid, $response[0]['ListID'], $data->model, $data->cost, $data->price
-        );
-    }
+  }
+  else {
+    $uc_qb_per_order_qb_variables['item_sales_tax'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }
 
 function uc_qb_per_order_salestaxcode_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['sales_tax_code'][] = array(
-                    'list_id' => $v['ListID'],
-                    'name' => $v['Name'],
-                    'desc' => $v['Desc'],
-                );
-            }
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['sales_tax_code'][] = array(
+            'list_id' => $v['ListID'],
+            'name' => $v['Name'],
+            'desc' => $v['Desc'],
+        );
+      }
     }
-    else {
-        $uc_qb_per_order_qb_variables['sales_tax_code'] = NULL;
-    }
-    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
+  else {
+    $uc_qb_per_order_qb_variables['sales_tax_code'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }
 
 function uc_qb_per_order_account_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['account'][] = array(
-                    'list_id' => $v['ListID'],
-                    'fullname' => $v['FullName'],
-                    'desc' => $v['Desc'],
-                    'account_type' => $v['AccountType'],
-                    'special_account_type' => $v['SpecialAccountType'],
-                );
-            }
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['account'][] = array(
+            'list_id' => $v['ListID'],
+            'fullname' => $v['FullName'],
+            'desc' => $v['Desc'],
+            'account_type' => $v['AccountType'],
+            'special_account_type' => $v['SpecialAccountType'],
+        );
+      }
     }
-    else {
-        $uc_qb_per_order_qb_variables['account'] = NULL;
-    }
-    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
+  else {
+    $uc_qb_per_order_qb_variables['account'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }
 
 function uc_qb_per_order_itemothercharge_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response) && empty($data)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['item_other_charge'][] = array(
-                    'list_id' => $v['ListID'],
-                    'fullname' => $v['FullName'],
-                );
-            }
-        }
-        elseif (count($response) && !empty($data)) {
-            _uc_qb_per_order_line_item_mapping($response, $data);
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response) && empty($data)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['item_other_charge'][] = array(
+            'list_id' => $v['ListID'],
+            'fullname' => $v['FullName'],
+        );
+      }
+    }
+    elseif (count($response) && !empty($data)) {
+      _uc_qb_per_order_line_item_mapping($response, $data);
+    }
+  }
+  else {
+    if (empty($data)) {
+      $uc_qb_per_order_qb_variables['item_other_charge'] = NULL;
     }
     else {
-        if (empty($data)) {
-            $uc_qb_per_order_qb_variables['item_other_charge'] = NULL;
-        }
-        else {
-            $uc_qb_per_order_qb_settings = variable_get('uc_qb_per_order_settings', array());
-            $query = array(
-                'name' => 'ItemOtherChargeAddRq',
-                'request' => array(
-                    'ItemOtherChargeAdd' => array(
-                        'Name' => substr($data['title'], 0, 31),
-                        'IsActive' => 'true',
-                        'IsTaxIncluded' => 'false',
-                        'SalesOrPurchase' => array(
-                            'Desc' => $data['title'],
-                            'Price' => $data['amount'],
-                            'AccountRef' => array(
-                                'ListID' => $uc_qb_per_order_qb_settings['item_acct']['income']
-                            ),
-                        ),
-                    ),
-                ),
-                'data' => $data,
-                'callback' => array('uc_qb_per_order_itemotherchargeadd_response'),
-            );
-            qbwc_request_queue($query);
-        }
+      $uc_qb_per_order_qb_settings = variable_get('uc_qb_per_order_settings', array());
+      $query = array(
+          'name' => 'ItemOtherChargeAddRq',
+          'request' => array(
+              'ItemOtherChargeAdd' => array(
+                  'Name' => substr($data['title'], 0, 31),
+                  'IsActive' => 'true',
+                  'IsTaxIncluded' => 'false',
+                  'SalesOrPurchase' => array(
+                      'Desc' => $data['title'],
+                      'Price' => $data['amount'],
+                      'AccountRef' => array(
+                          'ListID' => $uc_qb_per_order_qb_settings['item_acct']['income']
+                      ),
+                  ),
+              ),
+          ),
+          'data' => $data,
+          'callback' => array('uc_qb_per_order_itemotherchargeadd_response'),
+      );
+      qbwc_request_queue($query);
     }
-    if (empty($data)) {
-        variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
-    }
+  }
+  if (empty($data)) {
+    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
 }
 
 function uc_qb_per_order_itemotherchargeadd_response($response, $data, $status, $message) {
-    if ($status != 0) {
-        _uc_qb_per_order_set_error($data['order_id'], $status, $message);
-    }
-    else {
-        _uc_qb_per_order_line_item_mapping($response, $data);
-    }
+  if ($status != 0) {
+    _uc_qb_per_order_set_error($data['order_id'], $status, $message);
+  }
+  else {
+    _uc_qb_per_order_line_item_mapping($response, $data);
+  }
 }
 
 function _uc_qb_per_order_line_item_mapping($response, $data) {
-    $ret = db_result(db_query("SELECT model FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $data['title']));
-    if ($ret) {
-        db_query("UPDATE {uc_qb_per_order_product_mapping} SET qb_list_id = '%s' WHERE model = '%s'", $response[0]['ListID'], $data['title']);
-    }
-    else {
-        db_query("INSERT INTO {uc_qb_per_order_product_mapping} (product_nid, qb_list_id, model) VALUES (%d, '%s', '%s')",
-                0, $response[0]['ListID'], $data['title']);
-    }
+  $ret = db_result(db_query("SELECT model FROM {uc_qb_per_order_product_mapping} WHERE model = '%s'", $data['title']));
+  if ($ret) {
+    db_query("UPDATE {uc_qb_per_order_product_mapping} SET qb_list_id = '%s' WHERE model = '%s'", $response[0]['ListID'], $data['title']);
+  }
+  else {
+    db_query("INSERT INTO {uc_qb_per_order_product_mapping} (product_nid, qb_list_id, model) VALUES (%d, '%s', '%s')",
+            0, $response[0]['ListID'], $data['title']);
+  }
 }
 
 function uc_qb_per_order_currency_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['currency'][] = array(
-                    'list_id' => $v['ListID'],
-                    'name' => $v['Name'],
-                    'currency_code' => $v['CurrencyCode'],
-                );
-            }
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['currency'][] = array(
+            'list_id' => $v['ListID'],
+            'name' => $v['Name'],
+            'currency_code' => $v['CurrencyCode'],
+        );
+      }
     }
-    else {
-        $uc_qb_per_order_qb_variables['currency'] = NULL;
-    }
-    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
+  else {
+    $uc_qb_per_order_qb_variables['currency'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }
 
 function uc_qb_per_order_itemsubtotal_query_response($response, $data, $status, $message) {
-    if ($status != 0) {
-        $query = array('name' => 'ItemSubtotalAddRq',
-            'request' => array(
-                'ItemSubtotalAdd' => array(
-                    'Name' => 'subtotal',
-                    'ItemDesc' => t('Subtotal excluding taxes'),
-                ),
+  if ($status != 0) {
+    $query = array('name' => 'ItemSubtotalAddRq',
+        'request' => array(
+            'ItemSubtotalAdd' => array(
+                'Name' => 'subtotal',
+                'ItemDesc' => t('Subtotal excluding taxes'),
             ),
-            'callback' => array('uc_qb_per_order_itemsubtotal_add_response'),
-        );
-        qbwc_request_queue($query);
-    }
+        ),
+        'callback' => array('uc_qb_per_order_itemsubtotal_add_response'),
+    );
+    qbwc_request_queue($query);
+  }
 }
 
 function uc_qb_per_order_itemsubtotal_add_response($response, $data, $status, $message) {
-    if ($status == 0) {
-        $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
-        $uc_qb_per_order_settings['subtotal_item'] = 'subtotal';
-    }
-    else {
-        variable_set('uc_qb_per_order_stop', 1);
-        variable_set('uc_qb_per_order_last_error', t('Create item subtotal fail. Error message @message', array('@message' => $message)));
-    }
+  if ($status == 0) {
+    $uc_qb_per_order_settings = variable_get('uc_qb_per_order_settings', NULL);
+    $uc_qb_per_order_settings['subtotal_item'] = 'subtotal';
+  }
+  else {
+    variable_set('uc_qb_per_order_stop', 1);
+    variable_set('uc_qb_per_order_last_error', t('Create item subtotal fail. Error message @message', array('@message' => $message)));
+  }
 }
 
 function uc_qb_per_order_customermsg_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['customer_msg'][] = array(
-                    'list_id' => $v['ListID'],
-                    'name' => $v['Name'],
-                );
-            }
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['customer_msg'][] = array(
+            'list_id' => $v['ListID'],
+            'name' => $v['Name'],
+        );
+      }
     }
-    else {
-        $uc_qb_per_order_qb_variables['customer_msg'] = NULL;
-    }
-    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
+  else {
+    $uc_qb_per_order_qb_variables['customer_msg'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }
 
 function uc_qb_per_order_paymentmethod_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['payment_method'][] = array(
-                    'list_id' => $v['ListID'],
-                    'name' => $v['Name'],
-                    'type' => $v['PaymentMethodType']
-                );
-            }
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['payment_method'][] = array(
+            'list_id' => $v['ListID'],
+            'name' => $v['Name'],
+            'type' => $v['PaymentMethodType']
+        );
+      }
     }
-    else {
-        $uc_qb_per_order_qb_variables['payment_method'] = NULL;
-    }
-    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
+  else {
+    $uc_qb_per_order_qb_variables['payment_method'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }
 
 function uc_qb_per_order_class_query_response($response, $data, $status, $message) {
-    $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
-    if ($status == 0) {
-        if (count($response)) {
-            foreach ($response as $k => $v) {
-                $uc_qb_per_order_qb_variables['class'][] = array(
-                    'list_id' => $v['ListID'],
-                    'fullname' => $v['FullName'],
-                );
-            }
-        }
+  $uc_qb_per_order_qb_variables = variable_get('uc_qb_per_order_qb_variables', NULL);
+  if ($status == 0) {
+    if (count($response)) {
+      foreach ($response as $k => $v) {
+        $uc_qb_per_order_qb_variables['class'][] = array(
+            'list_id' => $v['ListID'],
+            'fullname' => $v['FullName'],
+        );
+      }
     }
-    else {
-        $uc_qb_per_order_qb_variables['class'] = NULL;
-    }
-    variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
+  }
+  else {
+    $uc_qb_per_order_qb_variables['class'] = NULL;
+  }
+  variable_set('uc_qb_per_order_qb_variables', $uc_qb_per_order_qb_variables);
 }

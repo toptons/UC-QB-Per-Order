@@ -1,10 +1,8 @@
-; $Id$ 
 name =  UC QB Per Order
 description = Import UC orders to QuickBooks per order using web connector
 dependencies[] = qbwc
 dependencies[] = uc_store
 dependencies[] = uc_taxes
 package = Ubercart - extra
-version = 6.x-1.1
 core = 6.x
 php = 5
